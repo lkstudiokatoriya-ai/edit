@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Premium Cinematic Slideshow</title>
+    <style>
+        /* ==========================================================================
+           BASE STYLES & RESET
+           ========================================================================== */
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --primary-glow: #00d2ff;
+            --secondary-glow: #3a7bd5;
+            --gold-accent: #ffd700;
+            --text-main: #ffffff;
+            --bg-color: #050505;
+        }
+
+        html, body {
+            width: 100vw;
+            height: 100vh;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* ==========================================================================
+           LAYERS & CONTAINERS
+           ========================================================================== */
+        #app-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #slideshow-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 1;
+            background: #000;
+        }
+
+        #canvas-effects {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 5;
+            pointer-events: none;
+            mix-blend-mode: screen;
+        }
+
+        #text-overlay-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        #intro-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: radial-gradient(circle at center, #111 0%, #000 100%);
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 2s ease-in-out, visibility 2s;
+        }
+
+        #popup-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            z-index: 30;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* ==========================================================================
+           POPUP UI (GLASSMORPHISM)
+           ========================================================================== */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(255,255,255,0.02);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 40px;
+            text-align: center;
+            max-width: 90%;
+            width: 450px;
+            transform: translateY(20px);
+            opacity: 0;
+            animation: cardEntrance 1s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards;
+        }
+
+        .glass-card p {
+            font-size: 1.2rem;
+            line-height: 1.6;
+            margin-bottom: 30px;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 300;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            position: relative;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0));
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 15px 45px;
+            font-size: 1.1rem;
+            font-weight: 500;
+            border-radius: 50px;
+            cursor: pointer;
+            overflow: hidden;
+            transition: all 0.4s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            outline: none;
+        }
+
+        .btn-primary::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .btn-primary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--primary-glow);
+            box-shadow: 0 0 20px rgba(0, 210, 255, 0.4), inset 0 0 10px rgba(0, 210, 255, 0.2);
+            transform: scale(1.05);
+        }
+
+        .btn-primary:hover::before {
+            left: 100%;
+        }
+
+        .btn-primary:active {
+            transform: scale(0.95);
+        }
+
+        /* ==========================================================================
+           INTRO ANIMATION (HANDWRITING REVEAL)
+           ========================================================================== */
+        .intro-text-wrapper {
+            position: relative;
+            font-size: clamp(1.8rem, 5vw, 4rem);
+            font-weight: 700;
+            color: transparent;
+            background: linear-gradient(90deg, #fff 0%, #fff 40%, var(--primary-glow) 60%, var(--secondary-glow) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            white-space: nowrap;
+            filter: drop-shadow(0 0 10px rgba(0, 210, 255, 0.3));
+        }
+
+        .intro-mask {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: #111;
+            transform-origin: right;
+        }
+
+        .intro-spark {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 4px;
+            height: 120%;
+            background: #fff;
+            transform: translateY(-50%);
+            box-shadow: 0 0 20px 5px var(--primary-glow), 0 0 40px 10px var(--secondary-glow);
+            border-radius: 50%;
+            opacity: 0;
+        }
+
+        /* ==========================================================================
+           SLIDESHOW ENGINE
+           ========================================================================== */
+        .slide-group {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            opacity: 0;
+            transition: opacity 2.5s cubic-bezier(0.4, 0, 0.2, 1);
+            visibility: hidden;
+            overflow: hidden;
+        }
+
+        .slide-group.active {
+            opacity: 1;
+            visibility: visible;
+            z-index: 2;
+        }
+        
+        .slide-group.previous {
+            opacity: 1;
+            visibility: visible;
+            z-index: 1;
+        }
+
+        .slide-bg {
+            position: absolute;
+            /* Inset negative to prevent blurred edges showing */
+            inset: -15%;
+            width: 130%; height: 130%;
+            background-size: cover;
+            background-position: center;
+            filter: blur(35px) brightness(0.4) saturate(1.2);
+            transform: scale(1.1);
+        }
+
+        .slide-fg {
+            position: absolute;
+            inset: 0;
+            width: 100%; height: 100%;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            filter: drop-shadow(0 20px 50px rgba(0,0,0,0.8));
+        }
+
+        /* Overlay gradient for depth */
+        .vignette-overlay {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle, transparent 40%, rgba(0,0,0,0.6) 100%);
+            z-index: 3;
+            pointer-events: none;
+        }
+
+        /* Cinematic Motion Classes (Applied dynamically via JS) */
+        .motion-zoom-in { animation: kbZoomIn 15s linear infinite alternate; }
+        .motion-zoom-out { animation: kbZoomOut 15s linear infinite alternate; }
+        .motion-pan-left { animation: kbPanLeft 20s linear infinite alternate; }
+        .motion-pan-right { animation: kbPanRight 20s linear infinite alternate; }
+        .motion-tilt-up { animation: kbTiltUp 18s linear infinite alternate; }
+        .motion-float { animation: kbFloat 25s ease-in-out infinite alternate; }
+
+        @keyframes kbZoomIn { 0% { transform: scale(1.02); } 100% { transform: scale(1.2); } }
+        @keyframes kbZoomOut { 0% { transform: scale(1.2); } 100% { transform: scale(1.02); } }
+        @keyframes kbPanLeft { 0% { transform: scale(1.15) translateX(2%); } 100% { transform: scale(1.15) translateX(-2%); } }
+        @keyframes kbPanRight { 0% { transform: scale(1.15) translateX(-2%); } 100% { transform: scale(1.15) translateX(2%); } }
+        @keyframes kbTiltUp { 0% { transform: scale(1.15) translateY(2%); } 100% { transform: scale(1.15) translateY(-2%); } }
+        @keyframes kbFloat { 
+            0% { transform: scale(1.1) translate(1%, 1%) rotate(0deg); } 
+            50% { transform: scale(1.15) translate(-1%, -1%) rotate(1deg); } 
+            100% { transform: scale(1.1) translate(1%, -1%) rotate(-1deg); } 
+        }
+
+        /* ==========================================================================
+           DYNAMIC TEXT EFFECTS
+           ========================================================================== */
+        .dynamic-text {
+            position: absolute;
+            font-size: clamp(1.2rem, 3vw, 2.5rem);
+            font-weight: 600;
+            letter-spacing: 1px;
+            padding: 15px 30px;
+            border-radius: 12px;
+            max-width: 80%;
+            text-align: center;
+            opacity: 0;
+            z-index: 10;
+        }
+
+        .gold-highlight {
+            color: var(--gold-accent);
+            text-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+        }
+
+        /* Text Styles */
+        .style-glass {
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        
+        .style-clean {
+            text-shadow: 2px 2px 10px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        .style-neon {
+            color: #fff;
+            text-shadow: 
+                0 0 5px #fff, 0 0 10px #fff, 
+                0 0 20px var(--primary-glow), 0 0 40px var(--primary-glow), 
+                0 0 80px var(--secondary-glow);
+        }
+
+        /* Text Animations */
+        .anim-fade-up {
+            animation: fadeUp 6s cubic-bezier(0.2, 1, 0.3, 1) forwards;
+        }
+        .anim-glitch {
+            animation: fadeUp 6s forwards, glitch 3s infinite;
+        }
+        .anim-focus {
+            animation: blurFocus 6s forwards;
+        }
+        .anim-typewriter {
+            overflow: hidden;
+            white-space: nowrap;
+            border-right: 3px solid var(--primary-glow);
+            width: 0;
+            opacity: 1 !important;
+            animation: typing 3s steps(40, end) forwards, blink 0.75s step-end infinite;
+        }
+
+        @keyframes cardEntrance { from { opacity: 0; transform: translateY(40px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes fadeUp { 0% { opacity: 0; transform: translateY(30px); } 15% { opacity: 1; transform: translateY(0); } 85% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-30px); } }
+        @keyframes blurFocus { 0% { opacity: 0; filter: blur(20px); transform: scale(1.1); } 15% { opacity: 1; filter: blur(0px); transform: scale(1); } 85% { opacity: 1; filter: blur(0px); transform: scale(1); } 100% { opacity: 0; filter: blur(20px); transform: scale(0.9); } }
+        @keyframes typing { from { width: 0 } to { width: 100% } }
+        @keyframes blink { from, to { border-color: transparent } 50% { border-color: var(--primary-glow); } }
+        @keyframes glitch { 
+            0% { transform: translate(0) } 
+            20% { transform: translate(-2px, 1px) } 
+            40% { transform: translate(-1px, -1px) } 
+            60% { transform: translate(2px, 1px) } 
+            80% { transform: translate(1px, -1px) } 
+            100% { transform: translate(0) } 
+        }
+
+        /* Utility */
+        .hidden { display: none !important; }
+
+    </style>
+</head>
+<body>
+
+    <div id="app-container">
+        <!-- Audio Player -->
+        <audio id="bg-music" loop>
+            <source src="music.mp3" type="audio/mpeg">
+        </audio>
+
+        <!-- Dynamic Image Slideshow Layer -->
+        <div id="slideshow-layer">
+            <!-- Slides injected via JS -->
+            <div class="vignette-overlay"></div>
+        </div>
+
+        <!-- High Performance Canvas for Particles & VFX -->
+        <canvas id="canvas-effects"></canvas>
+
+        <!-- Dynamic Texts Overlay -->
+        <div id="text-overlay-layer"></div>
+
+        <!-- Intro Animation Screen -->
+        <div id="intro-layer">
+            <div class="intro-text-wrapper" id="intro-wrapper">
+                <span id="intro-text">चलिए... Coding की Life में प्रवेश करते हैं!</span>
+                <div class="intro-mask" id="intro-mask"></div>
+                <div class="intro-spark" id="intro-spark"></div>
+            </div>
+        </div>
+
+        <!-- Initial Interaction Popup -->
+        <div id="popup-layer">
+            <div class="glass-card">
+                <p>Please rotate your phone or put it in landscape mode for a cinematic experience.</p>
+                <button class="btn-primary" id="btn-start">Okay</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * ==========================================================================
+         * PREMIUM CINEMATIC SLIDESHOW ENGINE
+         * Architected for High Performance, Canvas VFX, and Cinematic Fluidity
+         * ==========================================================================
+         */
+
+        // --- CONFIGURATION ---
+        const CONFIG = {
+            totalImages: 31,
+            slideDuration: 7000, // ms per slide
+            crossfadeDuration: 2500, // ms for transition
+            introDuration: 4500,
+            quotes: [
+                "🚀 Welcome to Coding Life",
+                "💻 Dream • Code • Create",
+                "⚡ HTML • CSS • JavaScript",
+                "🎯 Build Something Amazing",
+                "🌍 Learn • Build • Innovate",
+                "💡 Think Like a Developer",
+                "🔥 Never Stop Coding",
+                "🖥 Turning Ideas Into Reality",
+                "⚙ System Ready...",
+                "✨ Creating the Future",
+                "🚀 Keep Learning",
+                "🌟 Code Your Dreams",
+                "💙 One Line Can Change Everything",
+                "⚡ Success Starts With Code"
+            ],
+            motions: ['motion-zoom-in', 'motion-zoom-out', 'motion-pan-left', 'motion-pan-right', 'motion-tilt-up', 'motion-float'],
+            textStyles: ['style-glass', 'style-clean', 'style-neon'],
+            textAnims: ['anim-fade-up', 'anim-glitch', 'anim-focus', 'anim-typewriter']
+        };
+
+        // --- STATE ---
+        const State = {
+            images: [],
+            currentSlideIndex: 0,
+            activeGroup: 0, // 0 or 1 for double buffering DOM elements
+            isMusicPlaying: false,
+            width: window.innerWidth,
+            height: window.innerHeight,
+            audioContext: null
+        };
+
+        // --- DOM ELEMENTS ---
+        const DOM = {
+            popupLayer: document.getElementById('popup-layer'),
+            btnStart: document.getElementById('btn-start'),
+            audio: document.getElementById('bg-music'),
+            introLayer: document.getElementById('intro-layer'),
+            introMask: document.getElementById('intro-mask'),
+            introSpark: document.getElementById('intro-spark'),
+            slideshowLayer: document.getElementById('slideshow-layer'),
+            textOverlay: document.getElementById('text-overlay-layer'),
+            canvas: document.getElementById('canvas-effects'),
+            ctx: document.getElementById('canvas-effects').getContext('2d', { alpha: true })
+        };
+
+        // Initialize Application
+        function init() {
+            preloadImages();
+            setupCanvas();
+            window.addEventListener('resize', handleResize);
+            DOM.btnStart.addEventListener('click', startExperience);
+        }
+
+        // --- ASSET PIPELINE ---
+        function preloadImages() {
+            for (let i = 1; i <= CONFIG.totalImages; i++) {
+                const src = `images/${i}.jpg`;
+                State.images.push(src);
+                // Preload invisibly
+                const img = new Image();
+                img.src = src;
+            }
+            // Shuffle images for random feel (optional, but requested 1 to 31 sequentially normally. We will keep sequential to ensure all are seen)
+        }
+
+        // --- EXPERIENCE BOOTSTRAP ---
+        async function startExperience() {
+            // 1. Request Fullscreen & Landscape Lock
+            requestFullscreenAndLock();
+
+            // 2. Hide Popup
+            DOM.popupLayer.style.opacity = '0';
+            setTimeout(() => DOM.popupLayer.classList.add('hidden'), 1000);
+
+            // 3. Audio Bootstrap
+            playAudioWithFade();
+
+            // 4. Trigger Intro
+            playIntroSequence();
+            
+            // 5. Start VFX Engine
+            VFXEngine.start();
+        }
+
+        function requestFullscreenAndLock() {
+            try {
+                const elem = document.documentElement;
+                if (elem.requestFullscreen) elem.requestFullscreen().catch(e => console.warn(e));
+                else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen().catch(e => console.warn(e));
+                
+                if (screen.orientation && screen.orientation.lock) {
+                    screen.orientation.lock('landscape').catch(e => console.warn("Orientation lock failed/unsupported", e));
+                }
+            } catch (err) {
+                console.warn("Fullscreen API error", err);
+            }
+        }
+
+        function playAudioWithFade() {
+            try {
+                DOM.audio.volume = 0;
+                const playPromise = DOM.audio.play();
+                
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        State.isMusicPlaying = true;
+                        let vol = 0;
+                        const fadeInterval = setInterval(() => {
+                            if (vol < 0.8) {
+                                vol += 0.05;
+                                DOM.audio.volume = vol;
+                            } else {
+                                clearInterval(fadeInterval);
+                            }
+                        }, 200);
+                    }).catch(error => {
+                        console.warn("Autoplay blocked by browser. Continuing silently.", error);
+                    });
+                }
+            } catch(e) { console.warn(e); }
+        }
+
+        // --- INTRO SEQUENCE ENGINE ---
+        function playIntroSequence() {
+            DOM.introLayer.style.visibility = 'visible';
+            DOM.introLayer.style.opacity = '1';
+
+            // Simulate handwriting reveal via CSS mask translation + Canvas spark sync
+            const duration = 2500;
+            const startTime = performance.now();
+            DOM.introSpark.style.opacity = '1';
+
+            function animateMask(time) {
+                const elapsed = time - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                // Ease In Out
+                const easeProgress = progress < 0.5 ? 2 * progress * progress : -1 + (4 - 2 * progress) * progress;
+                
+                const translation = easeProgress * 100;
+                DOM.introMask.style.transform = `translateX(${translation}%)`;
+                DOM.introSpark.style.left = `${translation}%`;
+
+                // Emit heavy particles at spark location
+                if (progress > 0.05 && progress < 0.95) {
+                    const rect = DOM.introSpark.getBoundingClientRect();
+                    VFXEngine.emitBurst(rect.x, rect.y + rect.height/2, 3, 'spark');
+                }
+
+                if (progress < 1) {
+                    requestAnimationFrame(animateMask);
+                } else {
+                    DOM.introSpark.style.opacity = '0';
+                    setTimeout(() => {
+                        DOM.introLayer.style.opacity = '0';
+                        setTimeout(() => DOM.introLayer.classList.add('hidden'), 2000);
+                        SlideshowEngine.start();
+                        TextEngine.start();
+                    }, 2000);
+                }
+            }
+            requestAnimationFrame(animateMask);
+        }
+
+        // --- SLIDESHOW ENGINE (DOUBLE BUFFERING DOM) ---
+        const SlideshowEngine = {
+            domGroups: [],
+            
+            init() {
+                // Create two DOM groups for crossfading
+                for(let i=0; i<2; i++) {
+                    const group = document.createElement('div');
+                    group.className = 'slide-group';
+                    
+                    const bg = document.createElement('div');
+                    bg.className = 'slide-bg';
+                    
+                    const fg = document.createElement('div');
+                    fg.className = 'slide-fg';
+                    
+                    group.appendChild(bg);
+                    group.appendChild(fg);
+                    DOM.slideshowLayer.appendChild(group);
+                    this.domGroups.push({ root: group, bg: bg, fg: fg });
+                }
+            },
+
+            start() {
+                this.init();
+                this.renderNextSlide();
+                setInterval(() => this.renderNextSlide(), CONFIG.slideDuration);
+            },
+
+            renderNextSlide() {
+                const nextImgSrc = State.images[State.currentSlideIndex];
+                
+                const activeGroupIdx = State.activeGroup;
+                const nextGroupIdx = activeGroupIdx === 0 ? 1 : 0;
+                
+                const currentGrp = this.domGroups[activeGroupIdx];
+                const nextGrp = this.domGroups[nextGroupIdx];
+
+                // Setup Next Group
+                nextGrp.bg.style.backgroundImage = `url('${nextImgSrc}')`;
+                nextGrp.fg.style.backgroundImage = `url('${nextImgSrc}')`;
+                
+                // Randomize Cinematic Motion
+                const motionClass = CONFIG.motions[Math.floor(Math.random() * CONFIG.motions.length)];
+                nextGrp.bg.className = `slide-bg ${motionClass}`;
+                nextGrp.fg.className = `slide-fg ${motionClass}`;
+
+                // Force layout reflow to restart animations
+                void nextGrp.root.offsetWidth;
+
+                // Crossfade
+                if(currentGrp.root.classList.contains('active')) {
+                    currentGrp.root.classList.remove('active');
+                    currentGrp.root.classList.add('previous');
+                    // Clean up previous class after transition
+                    setTimeout(() => {
+                        currentGrp.root.classList.remove('previous');
+                    }, CONFIG.crossfadeDuration);
+                }
+
+                nextGrp.root.classList.add('active');
+
+                // Update State
+                State.activeGroup = nextGroupIdx;
+                State.currentSlideIndex = (State.currentSlideIndex + 1) % State.images.length;
+
+                // Trigger beat visual effect sync
+                VFXEngine.triggerBeat();
+            }
+        };
+
+        // --- DYNAMIC TEXT ENGINE ---
+        const TextEngine = {
+            start() {
+                this.spawnQuote();
+                // Random interval between 4s and 8s
+                setInterval(() => {
+                    this.spawnQuote();
+                }, Math.random() * 4000 + 4000);
+            },
+
+            spawnQuote() {
+                // Remove existing
+                DOM.textOverlay.innerHTML = '';
+
+                const quoteRaw = CONFIG.quotes[Math.floor(Math.random() * CONFIG.quotes.length)];
+                // Randomly highlight words (e.g. Code, HTML, Future)
+                const quote = this.highlightImportantWords(quoteRaw);
+
+                const el = document.createElement('div');
+                el.innerHTML = quote;
+
+                // Randomize Position (Avoid dead center)
+                const positions = [
+                    { top: '15%', left: '10%' },
+                    { bottom: '15%', left: '10%' },
+                    { top: '15%', right: '10%' },
+                    { bottom: '15%', right: '10%' },
+                    { top: '10%', left: '50%', transform: 'translateX(-50%)' },
+                    { bottom: '10%', left: '50%', transform: 'translateX(-50%)' }
+                ];
+                const pos = positions[Math.floor(Math.random() * positions.length)];
+                Object.assign(el.style, pos);
+
+                // Randomize Style & Anim
+                const style = CONFIG.textStyles[Math.floor(Math.random() * CONFIG.textStyles.length)];
+                const anim = CONFIG.textAnims[Math.floor(Math.random() * CONFIG.textAnims.length)];
+                
+                el.className = `dynamic-text ${style} ${anim}`;
+                
+                // If typewriter, clear inner HTML and let CSS do it on plain text (simplification)
+                if(anim === 'anim-typewriter') {
+                    el.innerHTML = quoteRaw; // strip spans for typewriter
+                    el.style.width = 'fit-content';
+                }
+
+                DOM.textOverlay.appendChild(el);
+            },
+
+            highlightImportantWords(text) {
+                const keywords = ['Code', 'Coding', 'HTML', 'CSS', 'JavaScript', 'Future', 'Dreams', 'Developer', 'Amazing'];
+                let res = text;
+                keywords.forEach(kw => {
+                    const regex = new RegExp(`\\b${kw}\\b`, 'gi');
+                    res = res.replace(regex, `<span class="gold-highlight">$&</span>`);
+                });
+                return res;
+            }
+        };
+
+        // --- HIGH PERFORMANCE VFX ENGINE (CANVAS) ---
+        function handleResize() {
+            State.width = window.innerWidth;
+            State.height = window.innerHeight;
+            DOM.canvas.width = State.width;
+            DOM.canvas.height = State.height;
+        }
+
+        const VFXEngine = {
+            particles: [],
+            isBeat: false,
+            beatTimer: 0,
+
+            start() {
+                handleResize();
+                // Pre-fill dust
+                for(let i=0; i<80; i++) this.spawnParticle('dust');
+                requestAnimationFrame((t) => this.loop(t));
+            },
+
+            triggerBeat() {
+                this.isBeat = true;
+                this.beatTimer = 20; // frames of intensity
+                // Burst sparks
+                for(let i=0; i<30; i++) {
+                    this.spawnParticle('spark', Math.random() * State.width, State.height + 10);
+                }
+            },
+
+            emitBurst(x, y, count, type) {
+                for(let i=0; i<count; i++) {
+                    this.spawnParticle(type, x, y, true);
+                }
+            },
+
+            spawnParticle(type, x = null, y = null, explosive = false) {
+                const p = {
+                    type: type,
+                    x: x !== null ? x : Math.random() * State.width,
+                    y: y !== null ? y : Math.random() * State.height,
+                    life: 0,
+                    maxLife: type === 'dust' ? Math.random() * 200 + 200 : Math.random() * 80 + 40
+                };
+
+                if (type === 'dust') {
+                    p.radius = Math.random() * 3 + 1;
+                    p.vx = (Math.random() - 0.5) * 0.5;
+                    p.vy = (Math.random() - 0.5) * 0.5 - 0.2; // slight upward drift
+                    p.color = `rgba(255, 255, 255, ${Math.random() * 0.3 + 0.1})`;
+                } else if (type === 'spark') {
+                    p.radius = Math.random() * 2 + 0.5;
+                    p.vx = explosive ? (Math.random() - 0.5) * 10 : (Math.random() - 0.5) * 2;
+                    p.vy = explosive ? (Math.random() - 0.5) * 10 : (Math.random() * -3) - 1; // move up
+                    const r = Math.random() > 0.5 ? 0 : 255;
+                    const b = 255;
+                    const g = Math.random() > 0.5 ? 210 : 255;
+                    p.color = `rgba(${r}, ${g}, ${b}, 1)`;
+                }
+
+                this.particles.push(p);
+            },
+
+            loop(time) {
+                const ctx = DOM.ctx;
+                ctx.clearRect(0, 0, State.width, State.height);
+
+                if (this.beatTimer > 0) {
+                    this.beatTimer--;
+                    // Subtle dynamic lighting on beat
+                    ctx.fillStyle = `rgba(0, 210, 255, ${this.beatTimer * 0.001})`;
+                    ctx.fillRect(0,0,State.width, State.height);
+                }
+
+                for (let i = this.particles.length - 1; i >= 0; i--) {
+                    const p = this.particles[i];
+                    p.life++;
+
+                    // Movement
+                    p.x += p.vx;
+                    p.y += p.vy;
+
+                    // Wobble for dust
+                    if (p.type === 'dust') {
+                        p.x += Math.sin(p.life * 0.05) * 0.5;
+                    }
+
+                    // Opacity envelope
+                    let progress = p.life / p.maxLife;
+                    let opacity = 1;
+                    if (progress < 0.2) opacity = progress / 0.2;
+                    else if (progress > 0.8) opacity = (1 - progress) / 0.2;
+
+                    ctx.globalAlpha = Math.max(0, opacity);
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+
+                    if (p.type === 'spark') {
+                        ctx.shadowBlur = 15;
+                        ctx.shadowColor = '#00d2ff';
+                        ctx.fillStyle = '#ffffff';
+                    } else {
+                        ctx.shadowBlur = 0;
+                        ctx.fillStyle = p.color;
+                    }
+
+                    ctx.fill();
+
+                    // Cleanup & Respawn
+                    if (p.life >= p.maxLife || p.x < -50 || p.x > State.width + 50 || p.y < -50 || p.y > State.height + 50) {
+                        this.particles.splice(i, 1);
+                        // Maintain dust density
+                        if(p.type === 'dust' && this.particles.filter(p=>p.type==='dust').length < 80) {
+                            this.spawnParticle('dust');
+                        }
+                    }
+                }
+
+                ctx.globalAlpha = 1;
+                ctx.shadowBlur = 0;
+
+                requestAnimationFrame((t) => this.loop(t));
+            }
+        };
+
+        // Bootstrap
+        document.addEventListener('DOMContentLoaded', init);
+
+    </script>
+</body>
+</html>
