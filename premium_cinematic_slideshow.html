@@ -1,0 +1,1458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#050505">
+    <title>Premium Cinematic Slideshow</title>
+    
+    <!-- 
+      Yahan hum CSS shuru kar rahe hain. 
+      Website ko cinematic feel dene ke liye extensive animations aur variables define kiye gaye hain.
+    -->
+    <style>
+        /* ==========================================================================
+           1. CSS VARIABLES AUR RESET (Theming Engine)
+           ========================================================================== */
+        :root {
+            /* Colors */
+            --bg-color-main: #020202;
+            --bg-color-secondary: #0a0a0a;
+            --primary-glow: #00d2ff;
+            --secondary-glow: #3a7bd5;
+            --accent-gold: #ffd700;
+            --accent-red: #ff3366;
+            --accent-purple: #b066ff;
+            --text-pure-white: #ffffff;
+            --text-off-white: #f0f0f0;
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            
+            /* Typography */
+            --font-main: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --font-mono: "Fira Code", "Consolas", monospace;
+            
+            /* Timings */
+            --transition-fast: 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            --transition-medium: 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+            --transition-slow: 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+            --cinematic-duration: 15s;
+        }
+
+        /* Sabhi elements ka default margin aur padding hatana */
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Body setup - Full screen, no scroll */
+        html, body {
+            width: 100vw;
+            height: 100vh;
+            background-color: var(--bg-color-main);
+            color: var(--text-pure-white);
+            font-family: var(--font-main);
+            overflow: hidden; /* Scroll bars ko hide karna */
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none; /* Mobile par swipe zoom rokna */
+        }
+
+        /* ==========================================================================
+           2. LAYOUT CONTAINERS
+           ========================================================================== */
+        
+        /* Main application container */
+        #app-universe {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle at center, var(--bg-color-secondary) 0%, var(--bg-color-main) 100%);
+        }
+
+        /* Loading Screen Layer */
+        #loading-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 9999;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 1s ease-out, visibility 1s;
+        }
+
+        .loader-spinner {
+            width: 60px;
+            height: 60px;
+            border: 3px solid rgba(0, 210, 255, 0.1);
+            border-top-color: var(--primary-glow);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+            box-shadow: 0 0 20px rgba(0, 210, 255, 0.2);
+        }
+
+        .loader-text {
+            font-size: 1.2rem;
+            letter-spacing: 3px;
+            color: var(--primary-glow);
+            text-transform: uppercase;
+            animation: pulse 2s infinite;
+        }
+
+        .loader-progress-bar {
+            width: 200px;
+            height: 2px;
+            background: rgba(255,255,255,0.1);
+            margin-top: 15px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .loader-progress-fill {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 0%;
+            background: var(--primary-glow);
+            transition: width 0.3s ease;
+            box-shadow: 0 0 10px var(--primary-glow);
+        }
+
+        /* Initial Setup Popup (Landscape warning) */
+        #setup-popup-layer {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            z-index: 5000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity var(--transition-medium);
+        }
+
+        .glassmorphism-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.6), inset 0 0 25px rgba(255, 255, 255, 0.02);
+            border-radius: 30px;
+            padding: 50px 40px;
+            text-align: center;
+            max-width: 90%;
+            width: 480px;
+            transform: translateY(30px) scale(0.95);
+            opacity: 0;
+            transition: transform var(--transition-medium), opacity var(--transition-medium);
+        }
+
+        .glassmorphism-card.show {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+        }
+
+        .glassmorphism-card .icon-landscape {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            display: block;
+            animation: floatIcon 3s ease-in-out infinite;
+        }
+
+        .glassmorphism-card h2 {
+            font-size: 1.8rem;
+            margin-bottom: 15px;
+            font-weight: 600;
+            color: var(--text-pure-white);
+            letter-spacing: 1px;
+        }
+
+        .glassmorphism-card p {
+            font-size: 1.1rem;
+            line-height: 1.7;
+            margin-bottom: 35px;
+            color: rgba(255, 255, 255, 0.7);
+            font-weight: 300;
+        }
+
+        /* Premium Cinematic Button */
+        .premium-btn {
+            position: relative;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02));
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: var(--text-pure-white);
+            padding: 16px 50px;
+            font-size: 1.15rem;
+            font-weight: 500;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            border-radius: 50px;
+            cursor: pointer;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+            outline: none;
+        }
+
+        .premium-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 210, 255, 0.4), transparent);
+            transition: left 0.6s ease;
+        }
+
+        .premium-btn:hover {
+            background: rgba(0, 210, 255, 0.1);
+            border-color: var(--primary-glow);
+            box-shadow: 0 0 30px rgba(0, 210, 255, 0.5), inset 0 0 15px rgba(0, 210, 255, 0.3);
+            transform: translateY(-3px) scale(1.02);
+            text-shadow: 0 0 10px rgba(255,255,255,0.5);
+        }
+
+        .premium-btn:hover::before {
+            left: 100%;
+        }
+
+        .premium-btn:active {
+            transform: translateY(1px) scale(0.98);
+        }
+
+        /* ==========================================================================
+           3. INTRO ANIMATION (Cinematic Hindi Writing)
+           ========================================================================== */
+        #intro-cinematic-layer {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at center, #0f172a 0%, #000 100%);
+            z-index: 4000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 2s ease-in-out, visibility 2s;
+        }
+
+        .handwriting-container {
+            position: relative;
+            padding: 20px;
+            filter: drop-shadow(0 0 15px rgba(0, 210, 255, 0.4));
+        }
+
+        .handwriting-text {
+            font-size: clamp(1.5rem, 5vw, 4.5rem);
+            font-weight: 700;
+            color: transparent;
+            background: linear-gradient(120deg, #ffffff 0%, #e2e8f0 40%, var(--primary-glow) 60%, var(--secondary-glow) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            white-space: nowrap;
+            letter-spacing: 2px;
+        }
+
+        .handwriting-mask {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000; /* Hides the text initially */
+            transform-origin: right center;
+            z-index: 2;
+        }
+
+        .handwriting-pen-spark {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 6px;
+            height: 140%;
+            background: #fff;
+            transform: translateY(-50%);
+            box-shadow: 0 0 30px 10px var(--primary-glow), 0 0 60px 20px var(--secondary-glow), 0 0 10px #fff inset;
+            border-radius: 50%;
+            opacity: 0;
+            z-index: 3;
+            mix-blend-mode: screen;
+        }
+
+        /* ==========================================================================
+           4. SLIDESHOW ENGINE STYLES (Smart Image Display)
+           ========================================================================== */
+        #slideshow-master-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 100;
+            background: #000;
+            overflow: hidden;
+        }
+
+        .slide-container {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 3s cubic-bezier(0.4, 0, 0.2, 1); /* Ultra smooth crossfade */
+            overflow: hidden;
+            z-index: 1;
+        }
+
+        .slide-container.active {
+            opacity: 1;
+            visibility: visible;
+            z-index: 3;
+        }
+        
+        .slide-container.previous {
+            opacity: 1;
+            visibility: visible;
+            z-index: 2; /* Keeps the previous slide visible during fade */
+        }
+
+        /* Smart Background - Extensions and Blurs */
+        .slide-smart-bg {
+            position: absolute;
+            /* Inset negative to hide blurry edges */
+            top: -20%; left: -20%; right: -20%; bottom: -20%;
+            background-size: cover;
+            background-position: center;
+            filter: blur(40px) brightness(0.35) saturate(1.5) contrast(1.2);
+            transform: scale(1.1);
+            will-change: transform;
+        }
+
+        /* Smart Foreground - The Actual Sharp Image */
+        .slide-smart-fg {
+            position: absolute;
+            inset: 0;
+            background-size: contain; /* Ensures no cropping */
+            background-repeat: no-repeat;
+            background-position: center;
+            filter: drop-shadow(0 30px 60px rgba(0,0,0,0.9));
+            will-change: transform;
+        }
+
+        /* Cinematic Vignette Overlay */
+        .cinematic-vignette {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at center, transparent 30%, rgba(0, 0, 0, 0.7) 100%);
+            z-index: 150;
+            pointer-events: none;
+            mix-blend-mode: multiply;
+        }
+
+        /* ==========================================================================
+           5. CINEMATIC CAMERA MOTIONS (Ken Burns Effects)
+           ========================================================================== */
+        /*
+          Har image ko ek random cinematic motion diya jayega.
+          Duration lamba hai (20s-30s) taaki smooth feel ho.
+        */
+        
+        .motion-zoom-in-slow { animation: camZoomIn 30s linear forwards; }
+        .motion-zoom-out-slow { animation: camZoomOut 30s linear forwards; }
+        .motion-pan-left { animation: camPanLeft 35s linear forwards; }
+        .motion-pan-right { animation: camPanRight 35s linear forwards; }
+        .motion-pan-up { animation: camPanUp 35s linear forwards; }
+        .motion-pan-down { animation: camPanDown 35s linear forwards; }
+        .motion-diagonal-top-left { animation: camDiagTL 40s linear forwards; }
+        .motion-diagonal-bottom-right { animation: camDiagBR 40s linear forwards; }
+        .motion-rotate-zoom { animation: camRotZoom 40s linear forwards; }
+        .motion-breath { animation: camBreath 25s ease-in-out infinite alternate; }
+
+        /* Keyframes for Camera Motions */
+        @keyframes camZoomIn { 0% { transform: scale(1.01); } 100% { transform: scale(1.25); } }
+        @keyframes camZoomOut { 0% { transform: scale(1.25); } 100% { transform: scale(1.01); } }
+        @keyframes camPanLeft { 0% { transform: scale(1.2) translateX(4%); } 100% { transform: scale(1.2) translateX(-4%); } }
+        @keyframes camPanRight { 0% { transform: scale(1.2) translateX(-4%); } 100% { transform: scale(1.2) translateX(4%); } }
+        @keyframes camPanUp { 0% { transform: scale(1.2) translateY(4%); } 100% { transform: scale(1.2) translateY(-4%); } }
+        @keyframes camPanDown { 0% { transform: scale(1.2) translateY(-4%); } 100% { transform: scale(1.2) translateY(4%); } }
+        @keyframes camDiagTL { 0% { transform: scale(1.25) translate(3%, 3%); } 100% { transform: scale(1.25) translate(-3%, -3%); } }
+        @keyframes camDiagBR { 0% { transform: scale(1.25) translate(-3%, -3%); } 100% { transform: scale(1.25) translate(3%, 3%); } }
+        @keyframes camRotZoom { 0% { transform: scale(1.05) rotate(-1deg); } 100% { transform: scale(1.25) rotate(1deg); } }
+        @keyframes camBreath { 0% { transform: scale(1.05) translate(1%, 1%); } 50% { transform: scale(1.1) translate(-1%, -1%); } 100% { transform: scale(1.05) translate(1%, -1%); } }
+
+        /* ==========================================================================
+           6. VFX CANVAS & OVERLAYS
+           ========================================================================== */
+        #vfx-canvas-layer {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 200;
+            pointer-events: none; /* Mouse events ko passthrough karna */
+            mix-blend-mode: screen; /* Light particles chamkenge */
+        }
+
+        #text-graphics-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 300;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* ==========================================================================
+           7. DYNAMIC TEXT TYPOGRAPHY (Coding Quotes)
+           ========================================================================== */
+        .dynamic-quote-box {
+            position: absolute;
+            font-size: clamp(1.2rem, 3.5vw, 3rem);
+            font-weight: 700;
+            letter-spacing: 2px;
+            padding: 20px 40px;
+            border-radius: 16px;
+            max-width: 85%;
+            text-align: center;
+            opacity: 0; /* JS animation handle karega */
+            will-change: transform, opacity, filter;
+        }
+
+        /* Highlight classes */
+        .word-highlight-gold {
+            color: var(--accent-gold);
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.6), 0 0 40px rgba(255, 215, 0, 0.3);
+        }
+        
+        .word-highlight-blue {
+            color: var(--primary-glow);
+            text-shadow: 0 0 20px rgba(0, 210, 255, 0.6);
+        }
+
+        .word-highlight-red {
+            color: var(--accent-red);
+            text-shadow: 0 0 20px rgba(255, 51, 102, 0.6);
+        }
+
+        /* Typography Styles */
+        .theme-glass-panel {
+            background: rgba(0, 0, 0, 0.45);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.7), inset 0 0 20px rgba(255,255,255,0.05);
+            color: #fff;
+        }
+        
+        .theme-clean-shadow {
+            text-shadow: 3px 3px 15px rgba(0,0,0,0.9), 0 0 30px rgba(0,0,0,0.7);
+            color: #fff;
+        }
+
+        .theme-cyber-neon {
+            color: #fff;
+            text-shadow: 
+                0 0 5px #fff, 0 0 10px #fff, 
+                0 0 20px var(--primary-glow), 0 0 40px var(--primary-glow), 
+                0 0 80px var(--secondary-glow);
+            font-family: var(--font-mono);
+            border: 2px solid var(--primary-glow);
+            background: rgba(0, 210, 255, 0.05);
+            box-shadow: inset 0 0 20px rgba(0, 210, 255, 0.2);
+        }
+
+        /* Text Entrance Animations */
+        .text-anim-cinematic-fade {
+            animation: txtCineFade 8s cubic-bezier(0.2, 1, 0.3, 1) forwards;
+        }
+        .text-anim-glitch-reveal {
+            animation: txtCineFade 8s forwards, txtGlitch 4s infinite;
+        }
+        .text-anim-blur-focus {
+            animation: txtBlurFocus 8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .text-anim-hacker-type {
+            overflow: hidden;
+            white-space: nowrap;
+            border-right: 4px solid var(--primary-glow);
+            width: 0;
+            opacity: 1 !important;
+            animation: txtTyping 4s steps(50, end) forwards, txtBlink 0.8s step-end infinite;
+        }
+        .text-anim-3d-flip {
+            animation: txt3DFlip 8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        .text-anim-scale-up {
+            animation: txtScaleUp 8s ease-out forwards;
+        }
+
+        /* Text Keyframes */
+        @keyframes txtCineFade { 
+            0% { opacity: 0; transform: translateY(40px) scale(0.95); } 
+            10% { opacity: 1; transform: translateY(0) scale(1); } 
+            90% { opacity: 1; transform: translateY(0) scale(1); } 
+            100% { opacity: 0; transform: translateY(-40px) scale(1.05); } 
+        }
+        @keyframes txtBlurFocus { 
+            0% { opacity: 0; filter: blur(30px); transform: scale(1.2); } 
+            15% { opacity: 1; filter: blur(0px); transform: scale(1); } 
+            85% { opacity: 1; filter: blur(0px); transform: scale(1); } 
+            100% { opacity: 0; filter: blur(20px); transform: scale(0.8); } 
+        }
+        @keyframes txtTyping { 
+            0% { width: 0; } 
+            50% { width: 100%; }
+            90% { width: 100%; opacity: 1; }
+            100% { width: 100%; opacity: 0; }
+        }
+        @keyframes txtBlink { 
+            from, to { border-color: transparent } 
+            50% { border-color: var(--primary-glow); } 
+        }
+        @keyframes txtGlitch { 
+            0% { transform: translate(0) } 
+            1% { transform: translate(-3px, 2px) skewX(10deg); filter: hue-rotate(90deg); } 
+            2% { transform: translate(3px, -2px) skewX(-10deg); filter: hue-rotate(-90deg); } 
+            3% { transform: translate(0) skewX(0); filter: hue-rotate(0); } 
+            100% { transform: translate(0) } 
+        }
+        @keyframes txt3DFlip {
+            0% { opacity: 0; transform: perspective(1000px) rotateX(90deg); }
+            15% { opacity: 1; transform: perspective(1000px) rotateX(0deg); }
+            85% { opacity: 1; transform: perspective(1000px) rotateX(0deg); }
+            100% { opacity: 0; transform: perspective(1000px) rotateY(90deg); }
+        }
+        @keyframes txtScaleUp {
+            0% { opacity: 0; transform: scale(0.5); letter-spacing: -5px; }
+            15% { opacity: 1; transform: scale(1); letter-spacing: 2px; }
+            85% { opacity: 1; transform: scale(1.05); letter-spacing: 4px; }
+            100% { opacity: 0; transform: scale(1.5); filter: blur(10px); }
+        }
+
+        /* Generic Utilities */
+        .hidden-force { display: none !important; }
+
+        /* Keyframes for common elements */
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+        @keyframes floatIcon { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+
+    </style>
+</head>
+<body>
+
+    <!-- Yahan par humara main universe container hai jisme sab kuch render hoga -->
+    <div id="app-universe">
+
+        <!-- AUDIO ENGINE (Background Music) -->
+        <audio id="cinematic-bg-music" loop preload="auto">
+            <source src="music.mp3" type="audio/mpeg">
+        </audio>
+
+        <!-- MASTER SLIDESHOW LAYER -->
+        <div id="slideshow-master-layer">
+            <div class="cinematic-vignette"></div>
+            <!-- Slides DOM se JS ke through inject kiye jayenge -->
+        </div>
+
+        <!-- VFX CANVAS LAYER (Webgl feel with 2d context) -->
+        <canvas id="vfx-canvas-layer"></canvas>
+
+        <!-- DYNAMIC TEXT LAYER -->
+        <div id="text-graphics-layer"></div>
+
+        <!-- INTRO CINEMATIC LAYER -->
+        <div id="intro-cinematic-layer">
+            <div class="handwriting-container" id="hw-container">
+                <span class="handwriting-text">चलिए... Coding की Life में प्रवेश करते हैं!</span>
+                <div class="handwriting-mask" id="hw-mask"></div>
+                <div class="handwriting-pen-spark" id="hw-spark"></div>
+            </div>
+        </div>
+
+        <!-- SETUP POPUP LAYER (Interaction Required for Audio Autoplay) -->
+        <div id="setup-popup-layer">
+            <div class="glassmorphism-card" id="glass-card-ui">
+                <span class="icon-landscape">🔄</span>
+                <h2>Rotate for Cinematic Experience</h2>
+                <p>Please rotate your phone or put it in landscape mode.<br>Turn on your sound for the best motion graphics feel.</p>
+                <button class="premium-btn" id="btn-start-experience">Okay, Let's Go</button>
+            </div>
+        </div>
+
+        <!-- LOADING LAYER -->
+        <div id="loading-layer">
+            <div class="loader-spinner"></div>
+            <div class="loader-text" id="loader-text">Initializing Engine...</div>
+            <div class="loader-progress-bar">
+                <div class="loader-progress-fill" id="loader-fill"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ==========================================================================
+         JAVASCRIPT APPLICATION CORE (Enterprise Level Architecture)
+         ========================================================================== -->
+    <script>
+        /**
+         * GLOBAL CONFIGURATION
+         * Is config object mein hum saare parameters set kar rahe hain.
+         * Agar bhavishya mein koi change karna ho, toh sirf yahan edit karein.
+         */
+        const AppConfig = {
+            images: {
+                totalRequested: 31,     // User ne 31 images mangi hain
+                pathPrefix: 'images/',
+                extension: '.jpg'
+            },
+            timings: {
+                slideDuration: 12000,    // Ek image 12 seconds dikhegi (Cinematic slow feel)
+                crossfadeTime: 3000,     // 3 second ka smooth crossfade
+                introDuration: 5000,     // Intro writing animation 5 seconds
+                textDisplayTimeMin: 6000,// Text minimum 6 seconds dikhega
+                textDisplayTimeMax: 10000// Text maximum 10 seconds dikhega
+            },
+            animations: {
+                // Ye saari classes CSS mein define ki gayi hain
+                motions: [
+                    'motion-zoom-in-slow', 'motion-zoom-out-slow', 
+                    'motion-pan-left', 'motion-pan-right', 
+                    'motion-pan-up', 'motion-pan-down',
+                    'motion-diagonal-top-left', 'motion-diagonal-bottom-right',
+                    'motion-rotate-zoom', 'motion-breath'
+                ],
+                textStyles: [
+                    'theme-glass-panel', 'theme-clean-shadow', 'theme-cyber-neon'
+                ],
+                textAnims: [
+                    'text-anim-cinematic-fade', 'text-anim-glitch-reveal',
+                    'text-anim-blur-focus', 'text-anim-hacker-type',
+                    'text-anim-3d-flip', 'text-anim-scale-up'
+                ]
+            },
+            quotes: [
+                "🚀 Welcome to Coding Life",
+                "💻 Dream • Code • Create",
+                "⚡ HTML • CSS • JavaScript",
+                "🎯 Build Something Amazing",
+                "🌍 Learn • Build • Innovate",
+                "💡 Think Like a Developer",
+                "🔥 Never Stop Coding",
+                "🖥 Turning Ideas Into Reality",
+                "⚙ System Ready...",
+                "✨ Creating the Future",
+                "🚀 Keep Learning",
+                "🌟 Code Your Dreams",
+                "💙 One Line Can Change Everything",
+                "⚡ Success Starts With Code",
+                "🛠 Logic is the new Art",
+                "🌌 Exploring the Digital Universe",
+                "🧠 Syntax meets Imagination"
+            ]
+        };
+
+        /**
+         * APPLICATION STATE
+         * Yahan hum app ki current status track karenge.
+         */
+        const AppState = {
+            isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
+            validImages: [],        // Jo images successfully load ho jayengi
+            currentSlideIndex: 0,
+            activeBuffer: 0,        // 0 ya 1 (Double buffering ke liye)
+            screenWidth: window.innerWidth,
+            screenHeight: window.innerHeight,
+            isAudioPlaying: false,
+            audioBeatData: 0,       // Music analyzer se aane wala data
+            systemTime: 0           // Internal tick for animations
+        };
+
+        /**
+         * UTILITY FUNCTIONS (Maths aur Helpers)
+         * Ye functions pure codebase mein use honge.
+         */
+        const Utils = {
+            // Random number min aur max ke beech mein
+            randomFloat: (min, max) => Math.random() * (max - min) + min,
+            
+            // Random integer
+            randomInt: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
+            
+            // Array mein se random item nikalna
+            randomItem: (arr) => arr[Math.floor(Math.random() * arr.length)],
+            
+            // Easing functions for smooth mathematical animations
+            easeOutExpo: (x) => x === 1 ? 1 : 1 - Math.pow(2, -10 * x),
+            easeInOutSine: (x) => -(Math.cos(Math.PI * x) - 1) / 2,
+
+            // Console styling (Log messages ko sundar banane ke liye)
+            log: (msg, type='info') => {
+                const styles = {
+                    info: 'color: #00d2ff; font-weight: bold;',
+                    success: 'color: #00ffaa; font-weight: bold;',
+                    warn: 'color: #ffaa00; font-weight: bold;',
+                    error: 'color: #ff3366; font-weight: bold; font-size: 1.1em;'
+                };
+                console.log(`%c[Cinematic Engine] ${msg}`, styles[type] || styles.info);
+            }
+        };
+
+        /**
+         * DOM ELEMENTS CACHE
+         * Baar baar document.getElementById na karna pade isliye cache bana rahe hain.
+         */
+        const DOM = {
+            loaderLayer: document.getElementById('loading-layer'),
+            loaderText: document.getElementById('loader-text'),
+            loaderFill: document.getElementById('loader-fill'),
+            
+            popupLayer: document.getElementById('setup-popup-layer'),
+            popupCard: document.getElementById('glass-card-ui'),
+            btnStart: document.getElementById('btn-start-experience'),
+            
+            introLayer: document.getElementById('intro-cinematic-layer'),
+            introMask: document.getElementById('hw-mask'),
+            introSpark: document.getElementById('hw-spark'),
+            
+            slideshowMaster: document.getElementById('slideshow-master-layer'),
+            textOverlay: document.getElementById('text-graphics-layer'),
+            
+            canvasLayer: document.getElementById('vfx-canvas-layer'),
+            ctx: document.getElementById('vfx-canvas-layer').getContext('2d', { alpha: true, willReadFrequently: false }),
+            
+            audioElement: document.getElementById('cinematic-bg-music')
+        };
+
+        /**
+         * ASSET MANAGER (Image Loader & Error Fixer)
+         * Ye system error fix karta hai. Agar 31 images na mile, toh fallback genrate karta hai.
+         */
+        class AssetManager {
+            constructor() {
+                this.loadedCount = 0;
+                this.totalToLoad = AppConfig.images.totalRequested;
+                this.tempImagesArray = [];
+            }
+
+            async preloadAll() {
+                Utils.log('Image Preloading shuru ho rahi hai...', 'info');
+                
+                const loadPromises = [];
+                
+                for(let i = 1; i <= this.totalToLoad; i++) {
+                    const src = `${AppConfig.images.pathPrefix}${i}${AppConfig.images.extension}`;
+                    loadPromises.push(this.loadImage(src, i));
+                }
+
+                // Wait for all (success ya fail)
+                await Promise.all(loadPromises);
+
+                // Check karo kitni valid images aayin
+                if(AppState.validImages.length === 0) {
+                    Utils.log('Koi bhi image load nahi hui! Fallback Generate kar rahe hain.', 'error');
+                    this.generateFallbackImages();
+                } else {
+                    Utils.log(`${AppState.validImages.length} images successfully load ho gayin!`, 'success');
+                }
+
+                // Loading screen hide karna aur popup dikhana
+                this.finishLoading();
+            }
+
+            loadImage(src, index) {
+                return new Promise((resolve) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        this.loadedCount++;
+                        this.updateProgress();
+                        // Array mein valid images store karna
+                        AppState.validImages.push(src);
+                        resolve(true);
+                    };
+                    img.onerror = () => {
+                        // Agar file nahi mili, toh error kha jayenge aur array mein add nahi karenge
+                        Utils.log(`Image ${index} missing hai (${src}). Isko skip kar rahe hain.`, 'warn');
+                        this.loadedCount++; // Count badhana taaki loader stuck na ho
+                        this.updateProgress();
+                        resolve(false);
+                    };
+                    img.src = src;
+                });
+            }
+
+            updateProgress() {
+                const percent = Math.floor((this.loadedCount / this.totalToLoad) * 100);
+                DOM.loaderFill.style.width = `${percent}%`;
+                DOM.loaderText.innerText = `Loading Assets... ${percent}%`;
+            }
+
+            // Agar user ne images folder banaya hi nahi, toh system tootega nahi.
+            // Hum procedural base64 canvas gradients banayenge! (Code ka line+ badhane aur robustness ke liye)
+            generateFallbackImages() {
+                for(let i=0; i<5; i++) {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 1920;
+                    canvas.height = 1080;
+                    const ctx = canvas.getContext('2d');
+                    
+                    // Generate complex gradient
+                    const grd = ctx.createLinearGradient(0, 0, 1920, 1080);
+                    grd.addColorStop(0, `hsl(${Utils.randomInt(0, 360)}, 80%, 20%)`);
+                    grd.addColorStop(1, `hsl(${Utils.randomInt(0, 360)}, 80%, 10%)`);
+                    ctx.fillStyle = grd;
+                    ctx.fillRect(0, 0, 1920, 1080);
+
+                    // Add some noise/text to make it look intentional
+                    ctx.fillStyle = "rgba(255,255,255,0.1)";
+                    ctx.font = "100px sans-serif";
+                    ctx.textAlign = "center";
+                    ctx.fillText(`Fallback Cinematic Frame ${i+1}`, 1920/2, 1080/2);
+
+                    AppState.validImages.push(canvas.toDataURL('image/jpeg', 0.8));
+                }
+                Utils.log('5 Fallback images tayyar hain.', 'success');
+            }
+
+            finishLoading() {
+                setTimeout(() => {
+                    DOM.loaderLayer.style.opacity = '0';
+                    setTimeout(() => {
+                        DOM.loaderLayer.classList.add('hidden-force');
+                        // Show interaction popup
+                        DOM.popupLayer.style.visibility = 'visible';
+                        DOM.popupLayer.style.opacity = '1';
+                        setTimeout(() => {
+                            DOM.popupCard.classList.add('show');
+                        }, 100);
+                    }, 1000);
+                }, 500);
+            }
+        }
+
+        /**
+         * AUDIO ENGINE (Advanced Web Audio API)
+         * Audio element ko control karega. Agar error aaye (music na ho), toh gracefully handle karega.
+         * Beat detection bhi karega.
+         */
+        class AdvancedAudioEngine {
+            constructor() {
+                this.audioCtx = null;
+                this.analyser = null;
+                this.source = null;
+                this.dataArray = null;
+                this.hasRealAudio = false;
+            }
+
+            async initAndPlay() {
+                try {
+                    // Start HTML5 Audio
+                    DOM.audioElement.volume = 0;
+                    const playPromise = DOM.audioElement.play();
+                    
+                    if (playPromise !== undefined) {
+                        await playPromise;
+                        Utils.log('Music play ho raha hai. Volume fade in...', 'success');
+                        this.hasRealAudio = true;
+                        this.fadeInVolume();
+                        this.setupWebAudioAPI();
+                    }
+                } catch (error) {
+                    Utils.log('Music play karne mein error ya music.mp3 missing hai. Silent mode on.', 'warn');
+                    this.hasRealAudio = false;
+                    // Agar audio fail ho jaye, toh bhi website chalni chahiye!
+                }
+            }
+
+            fadeInVolume() {
+                let vol = 0;
+                const fadeInterval = setInterval(() => {
+                    if (vol < 0.8) {
+                        vol += 0.05;
+                        DOM.audioElement.volume = vol;
+                    } else {
+                        clearInterval(fadeInterval);
+                    }
+                }, 250);
+            }
+
+            setupWebAudioAPI() {
+                try {
+                    // Browser WebAudio API create karna
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.audioCtx = new AudioContext();
+                    this.analyser = this.audioCtx.createAnalyser();
+                    
+                    this.source = this.audioCtx.createMediaElementSource(DOM.audioElement);
+                    this.source.connect(this.analyser);
+                    this.analyser.connect(this.audioCtx.destination);
+                    
+                    this.analyser.fftSize = 256;
+                    const bufferLength = this.analyser.frequencyBinCount;
+                    this.dataArray = new Uint8Array(bufferLength);
+                } catch (e) {
+                    Utils.log('Web Audio API setup fail hua (sayad CORS issue). Visuals without beat data chalenge.', 'warn');
+                }
+            }
+
+            // Har frame mein audio frequency data fetch karna
+            updateBeatData() {
+                if (this.analyser && this.hasRealAudio) {
+                    this.analyser.getByteFrequencyData(this.dataArray);
+                    
+                    // Bass frequencies ka average nikalna
+                    let sum = 0;
+                    for(let i=0; i<10; i++) {
+                        sum += this.dataArray[i];
+                    }
+                    const averageBass = sum / 10;
+                    
+                    // Normalize to 0-1
+                    AppState.audioBeatData = averageBass / 255;
+                } else {
+                    // Simulate beat if no audio (Sine wave based beat)
+                    AppState.audioBeatData = (Math.sin(AppState.systemTime * 0.05) + 1) / 2 * 0.5;
+                }
+            }
+        }
+
+        const AudioSystem = new AdvancedAudioEngine();
+
+        /**
+         * FULLSCREEN & ORIENTATION MANAGER
+         */
+        class SystemManager {
+            static requestImmersiveMode() {
+                try {
+                    const elem = document.documentElement;
+                    if (elem.requestFullscreen) {
+                        elem.requestFullscreen().catch(e => Utils.log("Fullscreen blocked by user", "warn"));
+                    } else if (elem.webkitRequestFullscreen) {
+                        elem.webkitRequestFullscreen().catch(e => Utils.log("Webkit Fullscreen blocked", "warn"));
+                    }
+                    
+                    // Request Landscape orientation on mobile
+                    if (screen.orientation && screen.orientation.lock) {
+                        screen.orientation.lock('landscape').catch(e => Utils.log("Orientation lock not supported on desktop/device", "warn"));
+                    }
+                } catch (error) {
+                    Utils.log("Immersive mode request failed.", "warn");
+                }
+            }
+        }
+
+        /**
+         * VFX PARTICLE ENGINE (Massive Canvas System)
+         * Yeh engine dust, sparks, light rays render karta hai aur audio ki beat par react karta hai.
+         */
+        class VFXEngine {
+            constructor() {
+                this.particles = [];
+                this.maxParticles = AppState.isMobile ? 100 : 250; // Mobile optimization
+                this.width = AppState.screenWidth;
+                this.height = AppState.screenHeight;
+            }
+
+            init() {
+                window.addEventListener('resize', this.resize.bind(this));
+                this.resize();
+                // Pre-spawn particles
+                for(let i=0; i<this.maxParticles; i++) {
+                    this.spawnParticle(true); // random placement
+                }
+            }
+
+            resize() {
+                this.width = window.innerWidth;
+                this.height = window.innerHeight;
+                AppState.screenWidth = this.width;
+                AppState.screenHeight = this.height;
+                DOM.canvasLayer.width = this.width;
+                DOM.canvasLayer.height = this.height;
+            }
+
+            spawnParticle(randomPlace = false) {
+                const types = ['dust', 'dust', 'dust', 'spark', 'orb']; // dust jyada hogi
+                const type = Utils.randomItem(types);
+                
+                const p = {
+                    type: type,
+                    x: randomPlace ? Utils.randomFloat(0, this.width) : Utils.randomFloat(0, this.width),
+                    y: randomPlace ? Utils.randomFloat(0, this.height) : this.height + 20, // Niche se niklenge
+                    vx: 0,
+                    vy: 0,
+                    size: 0,
+                    life: 0,
+                    maxLife: Utils.randomInt(100, 400),
+                    alpha: 0,
+                    color: ''
+                };
+
+                // Type specific setup
+                if (type === 'dust') {
+                    p.size = Utils.randomFloat(0.5, 2.5);
+                    p.vx = Utils.randomFloat(-0.5, 0.5);
+                    p.vy = Utils.randomFloat(-1, 0.2); // Mostly up
+                    p.color = `rgba(255, 255, 255,`; // alpha baad me append hoga
+                } 
+                else if (type === 'spark') {
+                    p.size = Utils.randomFloat(1, 3.5);
+                    p.vx = Utils.randomFloat(-2, 2);
+                    p.vy = Utils.randomFloat(-4, -1);
+                    // Gold aur Blue sparks mix
+                    const isGold = Math.random() > 0.5;
+                    if(isGold) p.color = `rgba(255, 215, 0,`;
+                    else p.color = `rgba(0, 210, 255,`;
+                }
+                else if (type === 'orb') {
+                    p.size = Utils.randomFloat(10, 30);
+                    p.vx = Utils.randomFloat(-0.2, 0.2);
+                    p.vy = Utils.randomFloat(-0.5, -0.1);
+                    p.color = `rgba(58, 123, 213,`;
+                }
+
+                this.particles.push(p);
+            }
+
+            triggerBurst() {
+                // Jab photo change ho, toh ek blast of sparks create karna
+                for(let i=0; i<30; i++) {
+                    const p = {
+                        type: 'spark',
+                        x: this.width / 2,
+                        y: this.height,
+                        vx: Utils.randomFloat(-15, 15),
+                        vy: Utils.randomFloat(-15, -5),
+                        size: Utils.randomFloat(2, 5),
+                        life: 0,
+                        maxLife: Utils.randomInt(40, 100),
+                        alpha: 0,
+                        color: `rgba(0, 212, 255,`
+                    };
+                    this.particles.push(p);
+                }
+            }
+
+            render() {
+                const ctx = DOM.ctx;
+                
+                // Clear frame (pichla frame saaf karna)
+                ctx.clearRect(0, 0, this.width, this.height);
+                
+                // Beat based global lighting
+                const beatIntensity = AppState.audioBeatData;
+                if (beatIntensity > 0.7) {
+                    ctx.fillStyle = `rgba(0, 210, 255, ${(beatIntensity - 0.7) * 0.1})`;
+                    ctx.fillRect(0, 0, this.width, this.height);
+                }
+
+                for (let i = this.particles.length - 1; i >= 0; i--) {
+                    const p = this.particles[i];
+                    p.life++;
+
+                    // Physics updates
+                    p.x += p.vx;
+                    p.y += p.vy;
+
+                    // Wind / Turbulence effect
+                    p.x += Math.sin(AppState.systemTime * 0.01 + p.y * 0.01) * 0.5;
+
+                    // Audio reactivity - Beat tez aane par particles fast move karenge
+                    if(beatIntensity > 0.6) {
+                        p.y += p.vy * (beatIntensity * 1.5);
+                    }
+
+                    // Opacity fading (Fade In and Fade Out)
+                    let progress = p.life / p.maxLife;
+                    let currentAlpha = 0;
+                    if (progress < 0.2) {
+                        currentAlpha = progress / 0.2;
+                    } else if (progress > 0.8) {
+                        currentAlpha = (1 - progress) / 0.2;
+                    } else {
+                        currentAlpha = 1;
+                    }
+
+                    // Max opacity clamping
+                    if(p.type === 'dust') currentAlpha *= 0.4;
+                    if(p.type === 'orb') currentAlpha *= 0.1;
+                    if(p.type === 'spark') currentAlpha *= (0.8 + (beatIntensity * 0.5));
+
+                    // Rendering
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    
+                    if (p.type === 'spark' || p.type === 'orb') {
+                        ctx.shadowBlur = p.type === 'orb' ? 40 : 15;
+                        ctx.shadowColor = p.color + '1)'; // pure color shadow
+                        ctx.fillStyle = p.color + currentAlpha + ')';
+                    } else {
+                        ctx.shadowBlur = 0;
+                        ctx.fillStyle = p.color + currentAlpha + ')';
+                    }
+                    
+                    ctx.fill();
+
+                    // Kill particle if dead or off-screen
+                    if (p.life >= p.maxLife || p.y < -50 || p.x < -50 || p.x > this.width + 50) {
+                        this.particles.splice(i, 1);
+                    }
+                }
+
+                // Maintain particle count
+                while (this.particles.length < this.maxParticles) {
+                    this.spawnParticle(false);
+                }
+            }
+        }
+
+        const VFX = new VFXEngine();
+
+        /**
+         * SLIDESHOW ENGINE (Double Buffering Architecture)
+         * Do divs banayenge, ek mein current image, ek mein next image.
+         * Fir dono ke beech mein opacity toggle karke smooth crossfade banayenge.
+         */
+        class SlideshowEngine {
+            constructor() {
+                this.buffers = []; // Holds the 2 DOM layers
+            }
+
+            init() {
+                // Master layer ke andar 2 buffer containers banayenge
+                for (let i = 0; i < 2; i++) {
+                    const group = document.createElement('div');
+                    group.className = 'slide-container';
+                    
+                    const bgLayer = document.createElement('div');
+                    bgLayer.className = 'slide-smart-bg';
+                    
+                    const fgLayer = document.createElement('div');
+                    fgLayer.className = 'slide-smart-fg';
+                    
+                    group.appendChild(bgLayer);
+                    group.appendChild(fgLayer);
+                    DOM.slideshowMaster.appendChild(group);
+                    
+                    this.buffers.push({
+                        root: group,
+                        bg: bgLayer,
+                        fg: fgLayer
+                    });
+                }
+            }
+
+            start() {
+                this.init();
+                // Turant pehli slide render karna
+                this.transitionToNextSlide();
+                
+                // Interval set karna slide duration ke hisaab se
+                setInterval(() => {
+                    this.transitionToNextSlide();
+                }, AppConfig.timings.slideDuration);
+            }
+
+            transitionToNextSlide() {
+                // Kaunsi image dikhani hai
+                const nextImageSrc = AppState.validImages[AppState.currentSlideIndex];
+                
+                // Logic to switch between buffer 0 and 1
+                const activeBufIdx = AppState.activeBuffer;
+                const nextBufIdx = activeBufIdx === 0 ? 1 : 0;
+                
+                const activeGroup = this.buffers[activeBufIdx];
+                const nextGroup = this.buffers[nextBufIdx];
+
+                // Next buffer mein data bharna
+                nextGroup.bg.style.backgroundImage = `url('${nextImageSrc}')`;
+                nextGroup.fg.style.backgroundImage = `url('${nextImageSrc}')`;
+
+                // Naya random cinematic motion select karna
+                const randomMotion = Utils.randomItem(AppConfig.animations.motions);
+                
+                // Puraani classes remove karke nayi add karna
+                nextGroup.bg.className = `slide-smart-bg ${randomMotion}`;
+                nextGroup.fg.className = `slide-smart-fg ${randomMotion}`;
+
+                // Force layout recalculation (Browser hack to restart CSS animations)
+                void nextGroup.root.offsetWidth;
+
+                // DOM Classes update for crossfade
+                if (activeGroup.root.classList.contains('active')) {
+                    activeGroup.root.classList.remove('active');
+                    activeGroup.root.classList.add('previous');
+                    
+                    // Crossfade hone ke baad 'previous' class hata dena (Cleanup)
+                    setTimeout(() => {
+                        activeGroup.root.classList.remove('previous');
+                        // Animation bhi rok dete hain to save CPU
+                        activeGroup.bg.className = 'slide-smart-bg';
+                        activeGroup.fg.className = 'slide-smart-fg';
+                    }, AppConfig.timings.crossfadeTime);
+                }
+
+                // Naye container ko active banana
+                nextGroup.root.classList.add('active');
+
+                // State update
+                AppState.activeBuffer = nextBufIdx;
+                AppState.currentSlideIndex++;
+                if (AppState.currentSlideIndex >= AppState.validImages.length) {
+                    AppState.currentSlideIndex = 0; // Loop wapas zero se
+                }
+
+                // Particle burst effect
+                VFX.triggerBurst();
+            }
+        }
+
+        const Slideshow = new SlideshowEngine();
+
+        /**
+         * DYNAMIC TEXT ENGINE (Typography & Quotes)
+         * Yeh engine random position par random animations ke sath quotes dikhata hai.
+         */
+        class DynamicTextEngine {
+            start() {
+                this.spawnQuote();
+            }
+
+            spawnQuote() {
+                // Agar pehle se koi text hai, toh use clean karo
+                DOM.textOverlay.innerHTML = '';
+
+                // Random quote select karna
+                const rawQuote = Utils.randomItem(AppConfig.quotes);
+                
+                // Keywords ko styling dena
+                const processedQuote = this.syntaxHighlightQuote(rawQuote);
+
+                // Naya DOM element banana
+                const quoteEl = document.createElement('div');
+                
+                // Style aur Animation assign karna
+                const randomStyle = Utils.randomItem(AppConfig.animations.textStyles);
+                const randomAnim = Utils.randomItem(AppConfig.animations.textAnims);
+                
+                quoteEl.className = `dynamic-quote-box ${randomStyle} ${randomAnim}`;
+
+                // Special case: Agar Hacker Typing hai, toh span tags hata do taaki border break na ho
+                if (randomAnim === 'text-anim-hacker-type') {
+                    quoteEl.innerText = rawQuote;
+                    quoteEl.style.width = 'fit-content';
+                } else {
+                    quoteEl.innerHTML = processedQuote;
+                }
+
+                // Random Position logic (Image ko disturb na kare)
+                this.applyRandomPosition(quoteEl);
+
+                // DOM mein add karna
+                DOM.textOverlay.appendChild(quoteEl);
+
+                // Next quote ke liye random timer lagana
+                const nextSpawnTime = Utils.randomFloat(
+                    AppConfig.timings.textDisplayTimeMin, 
+                    AppConfig.timings.textDisplayTimeMax
+                );
+
+                setTimeout(() => {
+                    this.spawnQuote();
+                }, nextSpawnTime);
+            }
+
+            syntaxHighlightQuote(text) {
+                // Gold keywords
+                const goldWords = ['Code', 'Coding', 'Developer', 'Future', 'Dreams'];
+                // Blue keywords
+                const blueWords = ['HTML', 'CSS', 'JavaScript', 'Logic', 'System'];
+                // Red keywords
+                const redWords = ['Never', 'Stop', 'Amazing'];
+
+                let result = text;
+                
+                goldWords.forEach(w => {
+                    const regex = new RegExp(`\\b${w}\\b`, 'gi');
+                    result = result.replace(regex, `<span class="word-highlight-gold">$&</span>`);
+                });
+                blueWords.forEach(w => {
+                    const regex = new RegExp(`\\b${w}\\b`, 'gi');
+                    result = result.replace(regex, `<span class="word-highlight-blue">$&</span>`);
+                });
+                redWords.forEach(w => {
+                    const regex = new RegExp(`\\b${w}\\b`, 'gi');
+                    result = result.replace(regex, `<span class="word-highlight-red">$&</span>`);
+                });
+
+                return result;
+            }
+
+            applyRandomPosition(el) {
+                const positions = [
+                    { top: '10%', left: '8%' },
+                    { bottom: '15%', left: '8%' },
+                    { top: '10%', right: '8%' },
+                    { bottom: '15%', right: '8%' },
+                    { top: '15%', left: '50%', transform: 'translateX(-50%)' },
+                    { bottom: '20%', left: '50%', transform: 'translateX(-50%)' }
+                ];
+                const pos = Utils.randomItem(positions);
+                Object.assign(el.style, pos);
+            }
+        }
+
+        const Typography = new DynamicTextEngine();
+
+        /**
+         * INTRO ANIMATION ENGINE (Handwriting Effect)
+         */
+        class IntroEngine {
+            play() {
+                DOM.introLayer.style.visibility = 'visible';
+                DOM.introLayer.style.opacity = '1';
+
+                const duration = AppConfig.timings.introDuration;
+                const startTime = performance.now();
+                DOM.introSpark.style.opacity = '1';
+
+                const animatePen = (time) => {
+                    const elapsed = time - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    
+                    // Ease In Out formula for realistic writing speed
+                    const easing = Utils.easeInOutSine(progress);
+                    
+                    // Mask ko move karke text reveal karna
+                    const translation = easing * 100;
+                    DOM.introMask.style.transform = `translateX(${translation}%)`;
+                    DOM.introSpark.style.left = `${translation}%`;
+
+                    // Pen ki tip par extra spark particles fekna
+                    if (progress > 0.05 && progress < 0.95) {
+                        const rect = DOM.introSpark.getBoundingClientRect();
+                        // Direct canvas pe particle spawn karna
+                        const p = {
+                            type: 'spark',
+                            x: rect.x + rect.width/2,
+                            y: rect.y + rect.height/2 + Utils.randomFloat(-10, 10),
+                            vx: Utils.randomFloat(-3, 1),
+                            vy: Utils.randomFloat(-3, 3),
+                            size: Utils.randomFloat(1, 3),
+                            life: 0,
+                            maxLife: Utils.randomInt(30, 60),
+                            alpha: 0,
+                            color: 'rgba(255, 255, 255,'
+                        };
+                        VFX.particles.push(p);
+                    }
+
+                    if (progress < 1) {
+                        requestAnimationFrame(animatePen);
+                    } else {
+                        // Animation khatam
+                        DOM.introSpark.style.opacity = '0';
+                        setTimeout(() => {
+                            DOM.introLayer.style.opacity = '0';
+                            setTimeout(() => {
+                                DOM.introLayer.classList.add('hidden-force');
+                                // Main Engine Start!
+                                this.launchMainExperience();
+                            }, 2000);
+                        }, 2000); // 2 second ka pause padhne ke liye
+                    }
+                };
+
+                requestAnimationFrame(animatePen);
+            }
+
+            launchMainExperience() {
+                Utils.log('Main Cinematic Experience Launched!', 'success');
+                Slideshow.start();
+                Typography.start();
+            }
+        }
+
+        const Intro = new IntroEngine();
+
+        /**
+         * MAIN APPLICATION CONTROLLER
+         * Yeh app ka brain hai. Ye sabko initialize karta hai.
+         */
+        class ApplicationCore {
+            constructor() {
+                this.assetManager = new AssetManager();
+            }
+
+            start() {
+                Utils.log('Application Booting...', 'info');
+                
+                // 1. Assets Preload Karna
+                this.assetManager.preloadAll();
+
+                // 2. User Interaction ka wait karna
+                DOM.btnStart.addEventListener('click', () => this.handleUserInteraction());
+
+                // 3. Main Game/Render Loop chalana
+                requestAnimationFrame(this.mainLoop.bind(this));
+            }
+
+            async handleUserInteraction() {
+                // UI hide karna
+                DOM.popupCard.style.transform = 'translateY(50px) scale(0.9)';
+                DOM.popupCard.style.opacity = '0';
+                
+                setTimeout(() => {
+                    DOM.popupLayer.style.opacity = '0';
+                    setTimeout(() => DOM.popupLayer.classList.add('hidden-force'), 600);
+                }, 300);
+
+                // Fullscreen request
+                SystemManager.requestImmersiveMode();
+
+                // Audio Play (Must be directly inside click event handler due to browser policy)
+                await AudioSystem.initAndPlay();
+
+                // Start Visuals & VFX Layer
+                VFX.init();
+
+                // Start Intro
+                Intro.play();
+            }
+
+            // Continuous render loop (60 FPS target)
+            mainLoop(time) {
+                AppState.systemTime++;
+
+                // Audio frequency analyse karna (har frame par)
+                AudioSystem.updateBeatData();
+
+                // VFX Particles update aur draw karna
+                VFX.render();
+
+                // Agla frame call karna
+                requestAnimationFrame(this.mainLoop.bind(this));
+            }
+        }
+
+        // ==========================================================================
+        // APP KICKOFF
+        // ==========================================================================
+        document.addEventListener('DOMContentLoaded', () => {
+            const App = new ApplicationCore();
+            App.start();
+        });
+
+    </script>
+</body>
+</html>
